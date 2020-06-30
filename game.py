@@ -59,14 +59,13 @@ def main():
             grid.append(Dot(i*GRID_DIST, j*GRID_DIST))
 
     lines = []
-
-    chance = True
+    turn = True
 
     while not quit:
         clock.tick(clk_spd)
         screen.fill(white)
 
-        if chance:
+        if turn:
             curr_color = red
             curr_lcolor = lred
         else:
@@ -83,7 +82,7 @@ def main():
             if event.type == pygame.MOUSEBUTTONDOWN:
                 light_line.change_color(curr_color)
                 lines.append(light_line)
-                chance = not chance
+                turn = not turn
 
             mouse_pos = pygame.mouse.get_pos()
             
