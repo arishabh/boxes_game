@@ -66,7 +66,7 @@ class Box:
         self.color = color
         self.x = coor[0]
         self.y = coor[1]
-        self.offset = 15
+        self.offset = 0
 
     def draw(self, screen):
         pygame.draw.rect(screen, self.color,  (self.x+self.offset, self.y+self.offset, GRID_DIST-self.offset*2, GRID_DIST-self.offset*2))
@@ -119,64 +119,34 @@ def main():
                     last = Dot(pos=light_line.start)
                     second_last = Dot(pos=light_line.stop)
                     if last.y == second_last.y:
-                        print('horizontal detected')
                         if second_last.x < last.x: last, second_last = second_last, last
                         l1 = Line(curr_color, last.one_up(), second_last.one_up())
                         l2 = Line(curr_color, second_last.one_up(), second_last.pos)
                         l3 = light_line
                         l4 = Line(curr_color, last.pos, last.one_up())
-                        print()
-                        print(last.pos, second_last.pos)
-                        print("l1:" + str(l1.start_stop))
-                        print("l2:" + str(l2.start_stop))
-                        print("l3:" + str(l3.start_stop))
-                        print("l4:" + str(l4.start_stop))
                         if l1 in lines and l2 in lines and l3 in lines and l4 in lines:
-                            print("INN1")
-                            points.append(Box(curr_color, l1.start))
+                            points.append(Box(curr_lcolor, l1.start))
 
                         l1 = Line(curr_color, last.pos, second_last.pos)
                         l2 = Line(curr_color, second_last.pos, second_last.one_down())
                         l4 = Line(curr_color, second_last.one_down(), last.one_down())
                         l3 = Line(curr_color, last.one_down(), last.pos)
-                        print()
-                        print("l1:" + str(l1.start_stop))
-                        print("l2:" + str(l2.start_stop))
-                        print("l3:" + str(l3.start_stop))
-                        print("l4:" + str(l4.start_stop))
-                        if l1 in lines and l2 in lines and l3 in lines and l4 in lines:
-                            print("INN2")
-                            points.append(Box(curr_color, l1.start))
+                            points.append(Box(curr_lcolor, l1.start))
 
                     if last.x == second_last.x:
-                        print('vertical detected')
                         if last.y < second_last.y: last, second_last = second_last, last
                         l1 = Line(curr_color, second_last.pos, second_last.one_right())
                         l2 = Line(curr_color, second_last.one_right(), last.one_right())
                         l3 = Line(curr_color, last.one_right(), last.pos)
                         l4 = light_line
-                        print()
-                        print(last.pos, second_last.pos)
-                        print("l1:" + str(l1.start_stop))
-                        print("l2:" + str(l2.start_stop))
-                        print("l3:" + str(l3.start_stop))
-                        print("l4:" + str(l4.start_stop))
                         if l1 in lines and l2 in lines and l3 in lines and l4 in lines:
-                            print("INN3")
-                            points.append(Box(curr_color, l1.start))
+                            points.append(Box(curr_lcolor, l1.start))
 
                         l1 = Line(curr_color, second_last.one_left(), second_last.pos)
                         l2 = light_line
                         l4 = Line(curr_color, last.pos, last.one_left())
                         l3 = Line(curr_color, last.one_left(), second_last.one_left())
-                        print()
-                        print("l1:" + str(l1.start_stop))
-                        print("l2:" + str(l2.start_stop))
-                        print("l3:" + str(l3.start_stop))
-                        print("l4:" + str(l4.start_stop))
-                        if l1 in lines and l2 in lines and l3 in lines and l4 in lines:
-                            print("INN4")
-                            points.append(Box(curr_color, l1.start))
+                            points.append(Box(curr_lcolor, l1.start))
             
 
             
@@ -184,8 +154,6 @@ def main():
             return abs(((p1[0]-p2[0])**2 + (p1[1]-p2[1])**2)**0.5)
 
         mouse_pos = pygame.mouse.get_pos()
-        textsurface = myfont.render(str(mouse_pos), False, (0, 0, 0))
-        screen.blit(textsurface,(0,0))
         dist = list(map(lambda a: get_dist(a.pos, mouse_pos), grid))
         if dist:
             dist_point = list(zip(dist, grid))
@@ -200,6 +168,10 @@ def main():
         nearest.draw(screen)
         second_nearest.draw(screen)
 
+        textsurface = myfont.render(str(redp), False, red)
+        screen.blit(textsurface,(10,10))
+        textsurface = myfont.render(str(bluep), False, blue)
+        screen.blit(textsurface,(10,20))
         for point in points: point.draw(screen)
         for line in lines: line.draw(screen)
         for dot in grid: dot.draw(screen)
