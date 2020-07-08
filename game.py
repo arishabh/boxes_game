@@ -13,6 +13,7 @@ white = (255,255,255)
 GRID_DIST = 80
 NOS = 10
 MARGIN = 2
+SSIZE = [1000,1000]
 
 class Dot:
     def __init__(self, x=0, y=0, pos=(-1,-1)):
@@ -66,7 +67,8 @@ class Box:
         self.color = color
         self.x = coor[0]
         self.y = coor[1]
-        self.offset = 0
+        self.offset = 15
+        self.is_shielded = False
 
     def draw(self, screen):
         pygame.draw.rect(screen, self.color,  (self.x+self.offset, self.y+self.offset, GRID_DIST-self.offset*2, GRID_DIST-self.offset*2))
@@ -75,17 +77,26 @@ class Player:
     def __init__(self, color, lcolor):
         self.color = color
         self.lcolor = lcolor
-        self.points = 0
+        self.points = []
+        self.lines = []
+        self.bombs = 2
+        self.shields = 1
+
+    def get_points(self):
+        return len(self.points)
+
+    def in_lines(self, lines):
+        return all(map(lambda l: l in self.lines, lines))
+
 
 def main():
     pygame.init()
 
-    screen_size = [1000,1000]
     quit = False
     clk_spd = 30
 
     clock = pygame.time.Clock()
-    screen = pygame.display.set_mode(screen_size)
+    screen = pygame.display.set_mode(SSIZE)
 
     grid = []
     for i in range(MARGIN, MARGIN+NOS):
@@ -96,11 +107,15 @@ def main():
     points = []
     turn = True
 
+    global player1
+    global player2
+
     player1 = Player(red, lred)
     player2 = Player(blue, lblue)
     curr_player = player1
 
     while not quit:
+        global change_player
         clock.tick(clk_spd)
         screen.fill(white)
         pygame.font.init() 
@@ -111,31 +126,33 @@ def main():
                 quit = True
 
             if event.type == pygame.MOUSEBUTTONDOWN:
-                if light_line not in lines: 
+                if light_line not in player1.lines and light_line not in player2.lines: 
                     light_line.change_color(curr_player.color)
-                    lines.append(light_line)
+                    curr_player.lines.append(light_line)
                     last = Dot(pos=light_line.start)
                     second_last = Dot(pos=light_line.stop)
                     change_player = True
+                    def check_point(all_lines):
+                        global change_player
+                        if all(map(lambda l: l in player1.lines or l in player2.lines, all_lines)):
+                            curr_player.points.append(Box(curr_player.color, l1.start))
+                            change_player = False
+
                     if last.y == second_last.y:
                         if second_last.x < last.x: last, second_last = second_last, last
                         l1 = Line(curr_player.color, last.one_up(), second_last.one_up())
                         l2 = Line(curr_player.color, second_last.one_up(), second_last.pos)
                         l3 = light_line
                         l4 = Line(curr_player.color, last.pos, last.one_up())
-                        if l1 in lines and l2 in lines and l3 in lines and l4 in lines:
-                            points.append(Box(curr_player.lcolor, l1.start))
-                            curr_player.points += 1
-                            change_player = False
+                        all_lines = [l1, l2, l3, l4]
+                        check_point(all_lines)
 
                         l1 = Line(curr_player.color, last.pos, second_last.pos)
                         l2 = Line(curr_player.color, second_last.pos, second_last.one_down())
                         l4 = Line(curr_player.color, second_last.one_down(), last.one_down())
                         l3 = Line(curr_player.color, last.one_down(), last.pos)
-                        if l1 in lines and l2 in lines and l3 in lines and l4 in lines:
-                            points.append(Box(curr_player.lcolor, l1.start))
-                            curr_player.points += 1
-                            change_player = False
+                        all_lines = [l1, l2, l3, l4]
+                        check_point(all_lines)
 
                     elif last.x == second_last.x:
                         if last.y < second_last.y: last, second_last = second_last, last
@@ -143,19 +160,15 @@ def main():
                         l2 = Line(curr_player.color, second_last.one_right(), last.one_right())
                         l3 = Line(curr_player.color, last.one_right(), last.pos)
                         l4 = light_line
-                        if l1 in lines and l2 in lines and l3 in lines and l4 in lines:
-                            points.append(Box(curr_player.lcolor, l1.start))
-                            curr_player.points += 1
-                            change_player = False
+                        all_lines = [l1, l2, l3, l4]
+                        check_point(all_lines)
 
                         l1 = Line(curr_player.color, second_last.one_left(), second_last.pos)
                         l2 = light_line
                         l4 = Line(curr_player.color, last.pos, last.one_left())
                         l3 = Line(curr_player.color, last.one_left(), second_last.one_left())
-                        if l1 in lines and l2 in lines and l3 in lines and l4 in lines:
-                            points.append(Box(curr_player.lcolor, l1.start))
-                            curr_player.points += 1
-                            change_player = False
+                        all_lines = [l1, l2, l3, l4]
+                        check_point(all_lines)
             
                     if change_player:
                         curr_player = player1 if curr_player == player2 else player2
@@ -179,13 +192,26 @@ def main():
         nearest.draw(screen)
         second_nearest.draw(screen)
 
-        textsurface = myfont.render(str(player1.points), False, red)
+        textsurface = myfont.render(str(player1.get_points()), False, red)
         screen.blit(textsurface,(10,10))
-        textsurface = myfont.render(str(player2.points), False, blue)
+        textsurface = myfont.render(str(player2.get_points()), False, blue)
         screen.blit(textsurface,(10,80))
-        for point in points: point.draw(screen)
-        for line in lines: line.draw(screen)
+        for point in player1.points: point.draw(screen)
+        for point in player2.points: point.draw(screen)
+        for line in player1.lines: line.draw(screen)
+        for line in player2.lines: line.draw(screen)
         for dot in grid: dot.draw(screen)
+        if player2.get_points() + player1.get_points() == 81:
+            if player1.get_points() > player2.get_points:
+                screen.fill(white)
+                winfont = pygame.font.SysFont('Comic Sans MS', 500)
+                textsurface = winfont.render("Red Wins!", False, red)
+                screen.blit(textsurface, (200, 450))
+            else:
+                screen.fill(white)
+                winfont = pygame.font.SysFont('Comic Sans MS', 500)
+                textsurface = winfont.render("Blue Wins!", False, blue)
+                screen.blit(textsurface, (200, 450))
         pygame.display.update()
             
     pygame.quit()
