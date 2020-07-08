@@ -87,6 +87,9 @@ class Player:
 
     def in_lines(self, lines):
         return all(map(lambda l: l in self.lines, lines))
+    
+    def __eq__(self, other):
+        return self.color == other.color
 
 
 def main():
@@ -212,8 +215,10 @@ def main():
                 winfont = pygame.font.SysFont('Comic Sans MS', 500)
                 textsurface = winfont.render("Blue Wins!", False, blue)
                 screen.blit(textsurface, (200, 450))
+            quit = True
         pygame.display.update()
             
     pygame.quit()
 
-main()
+while True:
+    main()
