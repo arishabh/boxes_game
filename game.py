@@ -46,7 +46,10 @@ class Dot:
         return (self.x, self.y+GRID_DIST)
 
     def __lt__(self, other):
-        return(self.pos < other.pos)
+        return(self.pos[0]<other.pos[0] and self.pos[1]<other.pos[1])
+
+    def __gt__(self, other):
+        return(self.pos[0]>other.pos[0] and self.pos[1]>other.pos[1])
 
 class Line:
     def __init__(self, color, start, stop):
@@ -55,6 +58,7 @@ class Line:
         self.start = start
         self.stop = stop
         self.start_stop = (start, stop)
+        self.is_shielded = False
 
     def draw(self, screen):
         pygame.draw.line(screen, self.color, self.start, self.stop, self.thickness)
@@ -66,7 +70,7 @@ class Line:
         self.color = color
 
 class Box:
-    def __init__(self, color, coor):
+    def __init__(self, color, coor, sl):
         self.color = color
         self.x = coor[0]
         self.y = coor[1]
@@ -75,13 +79,14 @@ class Box:
         self.imgy = self.y+self.offset
         self.imgxy = (self.imgx, self.imgy)
         self.is_shielded = False
+        self.surrounding_lines = sl
 
     def draw(self, screen):
         pygame.draw.rect(screen, self.color,  (self.imgx, self.imgy, GRID_DIST-self.offset*2, GRID_DIST-self.offset*2))
         if self.is_shielded:
-            x = (self.imgx+(GRID_DIST-self.offset*2)/2)
-            y = (self.imgy+(GRID_DIST-self.offset*2)/2)
-            pygame.draw.circle(screen, black, (x, y, 10))
+            x = int(self.imgx+(GRID_DIST-self.offset*2)/2)
+            y = int(self.imgy+(GRID_DIST-self.offset*2)/2)
+            pygame.draw.circle(screen, black, (x, y), 10)
 
 class Player:
     def __init__(self, ind, color, lcolor):
@@ -109,8 +114,6 @@ class Player:
     def draw(self, screen, mpos):
         for p in self.points: p.draw(screen)
         for l in self.lines: l.draw(screen)
-        self.bomb.draw(screen, mpos, self.bombs)
-        self.shield.draw(screen, mpos)
         myfont = pygame.font.SysFont('Comic Sans MS', 100)
         textsurface = myfont.render(str(self.get_points()), False, self.color)
         screen.blit(textsurface,(10, (self.index*70)+10))
@@ -128,19 +131,29 @@ class Player:
         self.shield_selected = True
         self.shield.select()
 
+    def use_shield(self):
+        self.shield_selected = False
+        self.shield = Shield()
+        self.shields -= 1
+
     def got_bombed(self, pos, effect_area):
         end = (pos[0]+effect_area[0], pos[1]+effect_area[1])
-        # self.points = [p for p in self.points if p.imgxy>pos and p.imgxy<end]
-        self.points = list(filter(lambda p: p<pos or p>end, self.points))
-        print(self.points)
-        self.lines = [l for l in self.lines if (l.start>pos and l.start<end) or (l.stop>pos and l.stop<end)]
-        print(self.lines)
+        def within(pos, start, stop):
+            return (pos[0]>start[0] and pos[1]>start[1]) and (pos[0]<stop[0] and pos[1]<stop[1])
+
+        self.points = [p for p in self.points if p.is_shielded or not(within(p.imgxy, pos, end))]
+        self.lines = [l for l in self.lines if l.is_shielded or not(within(l.start, pos, end) or within(l.stop, pos, end))]
 
     def got_shielded(self, pos, effect_area):
         end = (pos[0]+effect_area[0], pos[1]+effect_area[1])
+        def within(pos, start, stop):
+            return (pos[0]>start[0] and pos[1]>start[1]) and (pos[0]<stop[0] and pos[1]<stop[1])
+
         for p in self.points:
-            if p.imgxy>pos and p.imgxy<end:
+            if within(p.imgxy, pos, end): 
                 p.is_shielded = True
+                for l in p.surrounding_lines:
+                    if l in self.lines: self.lines[self.lines.index(l)].is_shielded = True
     
     def deselect_bomb(self):
         self.bomb_selected = False
@@ -188,7 +201,6 @@ class Bomb:
             bomb_ani = pygame.Surface(self.effect_area)
             bomb_ani.set_alpha(50)
             self.top_point = (self.near_pos[0]-round(self.effect_width/2), self.near_pos[1]-round(self.effect_height/2))
-            # pygame.draw.rect(bomb_ani, grey, (top_point_x, top_point_y, self.effect_width, self.effect_height))
             screen.blit(bomb_ani, self.top_point)
 
     def overlaps(self, pos):
@@ -204,17 +216,38 @@ class Shield:
         self.pos = (70, 600)
         self.rad = 50
         self.big_rad = 55
+        self.small_rad = 20
+        self.selected = False
+        boxes_effect = 4
+        self.effect_width = boxes_effect*GRID_DIST
+        self.effect_height = boxes_effect*GRID_DIST
+        self.effect_area = (self.effect_width, self.effect_height)
+        self.top_point = (0,0)
+        self.near_pos = (0,0)
 
-    def draw(self, screen, mpos):
+    def draw(self, screen, mpos, nos):
         if self.overlaps(mpos):
             pygame.draw.circle(screen, black, self.pos, self.big_rad)
         else:
             pygame.draw.circle(screen, black, self.pos, self.rad)
+        winfont = pygame.font.SysFont('Comic Sans MS', 70)
+        textsurface = winfont.render(str(nos), False, yellow)
+        screen.blit(textsurface, (self.pos[0]+self.rad*0.4, self.pos[1]+self.rad*0.4))
+        if self.selected:
+            self.near_pos = (GRID_DIST*round(mpos[0]/GRID_DIST), GRID_DIST*round(mpos[1]/GRID_DIST))
+            pygame.draw.circle(screen, black, self.near_pos, self.small_rad)
+            bomb_ani = pygame.Surface(self.effect_area)
+            bomb_ani.set_alpha(50)
+            self.top_point = (self.near_pos[0]-round(self.effect_width/2), self.near_pos[1]-round(self.effect_height/2))
+            screen.blit(bomb_ani, self.top_point)
 
     def overlaps(self, pos):
         x_axis = pos[0] > self.pos[0]-self.rad and pos[0] < self.pos[0]+self.rad
         y_axis = pos[1] > self.pos[1]-self.rad and pos[1] < self.pos[1]+self.rad
         return x_axis and y_axis
+
+    def select(self):
+        self.selected = True
 
 def check_win(screen, player1, player2):
     global grid
@@ -283,10 +316,12 @@ def main():
                     curr_player.deselect_shield()
                     change_player = False
                 elif curr_player.bomb_selected:
-                    curr_player.use_bomb()
                     player1.got_bombed(curr_player.bomb.top_point, curr_player.bomb.effect_area)
                     player2.got_bombed(curr_player.bomb.top_point, curr_player.bomb.effect_area)
+                    curr_player.use_bomb()
                 elif curr_player.shield_selected:
+                    player1.got_shielded(curr_player.shield.top_point, curr_player.shield.effect_area)
+                    player2.got_shielded(curr_player.shield.top_point, curr_player.shield.effect_area)
                     curr_player.use_shield()
                 elif curr_player.bomb.overlaps(mouse_pos) and curr_player.bombs and not curr_player.bomb_selected:
                     curr_player.select_bomb()
@@ -302,9 +337,8 @@ def main():
                     def check_point(all_lines):
                         global change_player
                         if all(map(lambda l: l in player1.lines or l in player2.lines, all_lines)):
-                            curr_player.points.append(Box(curr_player.color, l1.start))
+                            curr_player.points.append(Box(curr_player.color, l1.start, all_lines))
                             change_player = False
-                            print("changed to false")
 
                     if last.y == second_last.y:
                         if second_last.x < last.x: last, second_last = second_last, last
@@ -362,6 +396,8 @@ def main():
         second_nearest.draw(screen)
         player1.draw(screen, mouse_pos)
         player2.draw(screen, mouse_pos)
+        curr_player.bomb.draw(screen, mouse_pos, curr_player.bombs)
+        curr_player.shield.draw(screen, mouse_pos, curr_player.shields)
 
         check_win(screen, player1, player2)
         pygame.display.update()
