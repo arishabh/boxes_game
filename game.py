@@ -308,7 +308,6 @@ def main():
 
             if event.type == pygame.MOUSEBUTTONDOWN:
                 global change_player
-                change_player = True
                 if curr_player.bomb.overlaps(mouse_pos) and curr_player.bomb_selected:
                     curr_player.deselect_bomb()
                     change_player = False
